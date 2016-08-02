@@ -41,9 +41,20 @@ namespace Bluetooth
 
         private void Button_Click(object sender, RoutedEventArgs e)
         {
-            int i = comobox.SelectedIndex; 
-            bc.Connect(new InTheHand.Net.BluetoothEndPoint(infos[i].DeviceAddress,BluetoothService.SerialPort)); 
-            textbox.Text+=("connectet to "+infos[i].DeviceAddress.ToString()+" - " +BluetoothService.SerialPort.ToString()); 
+            try
+            {
+                int i = comobox.SelectedIndex;
+                Guid serviceClass = Guid.NewGuid();
+                
+                bc.Connect(infos[i].DeviceAddress, serviceClass);
+                textbox.Text += ("connectet to " + infos[i].DeviceAddress.ToString() + " - " + BluetoothService.SerialPort.ToString()); 
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message); 
+                throw;
+            }
+            
         }
     }
 }
