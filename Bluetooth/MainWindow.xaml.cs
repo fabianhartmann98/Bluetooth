@@ -1,4 +1,6 @@
-﻿using System;
+﻿using InTheHand.Net.Bluetooth;
+using InTheHand.Net.Sockets;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -20,9 +22,28 @@ namespace Bluetooth
     /// </summary>
     public partial class MainWindow : Window
     {
+        BluetoothClient bc;
+        BluetoothDeviceInfo[] infos; 
         public MainWindow()
         {
             InitializeComponent();
+            bc = new BluetoothClient();
+
+            infos = bc.DiscoverDevices();
+            string[] names= new string [infos.Length];
+            for (int i = 0; i < infos.Length; i++)
+            {
+                names[i] = infos[i].DeviceName; 
+            }
+            comobox.ItemsSource = names;
+            comobox.SelectedIndex = 0;
+        }
+
+        private void Button_Click(object sender, RoutedEventArgs e)
+        {
+            int i = comobox.SelectedIndex; 
+            bc.Connect(new InTheHand.Net.BluetoothEndPoint(infos[i].DeviceAddress,BluetoothService.SerialPort)); 
+            textbox.Text+=("connectet to "+infos[i].DeviceAddress.ToString()+" - " +BluetoothService.SerialPort.ToString()); 
         }
     }
 }
