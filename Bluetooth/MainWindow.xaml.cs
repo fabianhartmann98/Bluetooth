@@ -43,9 +43,11 @@ namespace Bluetooth
         {
             try
             {
+                 
+
                 int i = comobox.SelectedIndex;
                 Guid serviceClass = Guid.NewGuid();
-                
+                BluetoothSecurity.PairRequest(infos[i].DeviceAddress, "0000"); 
                 bc.Connect(infos[i].DeviceAddress, serviceClass);
                 textbox.Text += ("connectet to " + infos[i].DeviceAddress.ToString() + " - " + BluetoothService.SerialPort.ToString()); 
             }
