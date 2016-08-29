@@ -29,7 +29,7 @@ namespace Bluetooth
             InitializeComponent();
             bc = new BluetoothClient();
 
-            infos = bc.DiscoverDevices(255,false,false,true);
+            infos = bc.DiscoverDevices(255,false,true,true);
             string[] names= new string [infos.Length];
             for (int i = 0; i < infos.Length; i++)
             {
