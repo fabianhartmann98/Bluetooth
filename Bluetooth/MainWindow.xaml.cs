@@ -29,7 +29,7 @@ namespace Bluetooth
             InitializeComponent();
             bc = new BluetoothClient();
 
-            infos = bc.DiscoverDevices();
+            infos = bc.DiscoverDevices(255,false,false,true);
             string[] names= new string [infos.Length];
             for (int i = 0; i < infos.Length; i++)
             {
@@ -47,9 +47,15 @@ namespace Bluetooth
 
                 int i = comobox.SelectedIndex;
                 Guid serviceClass = Guid.NewGuid();
-                BluetoothSecurity.PairRequest(infos[i].DeviceAddress, "0000"); 
-                bc.Connect(infos[i].DeviceAddress, serviceClass);
-                textbox.Text += ("connectet to " + infos[i].DeviceAddress.ToString() + " - " + BluetoothService.SerialPort.ToString()); 
+                BluetoothDeviceInfo device = infos[i];
+                BluetoothSecurity.PairRequest(device.DeviceAddress, "0000"); 
+
+                if(device.Authenticated)
+                {
+                    bc.SetPin("0000");
+                    bc.BeginConnect(device.DeviceAddress, BluetoothService.SerialPort, new AsyncCallback(Connect), device);
+                }
+                
             }
             catch (Exception ex)
             {
@@ -57,6 +63,12 @@ namespace Bluetooth
                 throw;
             }
             
+        }
+
+        private void Connect(IAsyncResult ar)
+        {
+            if (ar.IsCompleted)
+                MessageBox.Show("Connected");
         }
     }
 }
