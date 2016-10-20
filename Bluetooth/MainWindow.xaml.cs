@@ -75,7 +75,6 @@ namespace Bluetooth
                 
                 if (device.Authenticated)
                 {
-                    bc.SetPin("0000");
                     bc.BeginConnect(device.DeviceAddress, BluetoothService.SerialPort, new AsyncCallback(Connect_ac), device);
                 }
 
@@ -94,7 +93,7 @@ namespace Bluetooth
 
         private void Type_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (Type.SelectedValue== "CLIENT")
+            if (Type.SelectedValue== "SERVER")
             {
                 Connect.IsEnabled = false;
                 bl= new BluetoothListener(new Guid());
