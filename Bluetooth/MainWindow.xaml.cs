@@ -98,6 +98,7 @@ namespace Bluetooth
             {
                 Connect.IsEnabled = false;
                 bl= new BluetoothListener(new Guid());
+                bl.Start();
                 bl.BeginAcceptBluetoothClient(new AsyncCallback(Connect_ac), bl); 
             }
             else
