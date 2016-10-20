@@ -35,40 +35,44 @@ namespace Bluetooth
             {
                 names[i] = infos[i].DeviceName; 
             }
-            comobox.ItemsSource = names;
-            comobox.SelectedIndex = 0;
+            Devices.ItemsSource = names;
+            Devices.SelectedIndex = 0;
         }
 
-        private void Button_Click(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                 
+        
 
-                int i = comobox.SelectedIndex;
-                Guid serviceClass = Guid.NewGuid();
-                BluetoothDeviceInfo device = infos[i];
-                BluetoothSecurity.PairRequest(device.DeviceAddress, "0000"); 
-
-                if(device.Authenticated)
-                {
-                    bc.SetPin("0000");
-                    bc.BeginConnect(device.DeviceAddress, BluetoothService.SerialPort, new AsyncCallback(Connect), device);
-                }
-                
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(ex.Message); 
-                throw;
-            }
-            
-        }
-
-        private void Connect(IAsyncResult ar)
+        private void Connect_ac(IAsyncResult ar)
         {
             if (ar.IsCompleted)
                 MessageBox.Show("Connected");
+        }
+
+        private void Connect_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                int i = Devices.SelectedIndex;
+                Guid serviceClass = Guid.NewGuid();
+                BluetoothDeviceInfo device = infos[i];
+                BluetoothSecurity.PairRequest(device.DeviceAddress, "0000");
+
+                if (device.Authenticated)
+                {
+                    bc.SetPin("0000");
+                    bc.BeginConnect(device.DeviceAddress, BluetoothService.SerialPort, new AsyncCallback(Connect_ac), device);
+                }
+
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+                throw;
+            }
+        }
+
+        private void Send_b_Click(object sender, RoutedEventArgs e)
+        {
+
         }
     }
 }
