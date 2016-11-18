@@ -52,6 +52,7 @@ namespace Bluetooth
             if (ar.IsCompleted)
             {
                 MessageBox.Show("Connected");
+                bc.EndConnect(ar);
                 s = bc.GetStream();
             }
         }
@@ -69,16 +70,18 @@ namespace Bluetooth
         {
             try
             {
-                int i = Devices.SelectedIndex;
-                Guid serviceClass = Guid.NewGuid();
-                BluetoothDeviceInfo device = infos[i];
-                BluetoothSecurity.PairRequest(device.DeviceAddress, "0000");
-                
-                if (device.Authenticated)
+                if (Connect_but.IsFocused)
                 {
-                    bc.BeginConnect(device.DeviceAddress, BluetoothService.SerialPort, new AsyncCallback(Connect_ac), device);
-                }
+                    int i = Devices.SelectedIndex;
+                    Guid serviceClass = Guid.NewGuid();
+                    BluetoothDeviceInfo device = infos[i];
+                    BluetoothSecurity.PairRequest(device.DeviceAddress, "0000");
 
+                    if (device.Authenticated)
+                    {
+                        bc.BeginConnect(device.DeviceAddress, BluetoothService.SerialPort, new AsyncCallback(Connect_ac), device);
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -94,18 +97,19 @@ namespace Bluetooth
 
         private void Type_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (Type.SelectedValue== "SERVER")
-            {
-                Connect.IsEnabled = false;
-                bl= new BluetoothListener(new Guid());
-                bl.Start();
-                bl.BeginAcceptBluetoothClient(new AsyncCallback(Connect_ac), bl); 
-            }
+            Type.ToString();
+            if (Type.SelectedItem.ToString() == "SERVER") ;
+            //{
+            //    Connect_but.IsEnabled = false;
+            //    bl= new BluetoothListener(new Guid());
+            //    bl.Start();
+            //    //bl.BeginAcceptBluetoothClient(new AsyncCallback(Connect_ac), bl); 
+            //}
             else
             {
                 if (bl != null)
                 {
-                    bl.Stop(); 
+                    bl.Stop();
                 }
             }
         }
