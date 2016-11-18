@@ -50,9 +50,10 @@ namespace Bluetooth
         private void Connect_ac(IAsyncResult ar)
         {
             if (ar.IsCompleted)
+            {
                 MessageBox.Show("Connected");
-            
-            s = bc.GetStream(); 
+                s = bc.GetStream();
+            }
         }
 
         private void Listener_ac(IAsyncResult ar)
