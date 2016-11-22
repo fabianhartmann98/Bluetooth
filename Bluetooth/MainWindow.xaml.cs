@@ -53,14 +53,6 @@ namespace Bluetooth
             s = bc.GetStream(); 
         }
 
-        private void Listener_ac(IAsyncResult ar)
-        {
-            if (ar.IsCompleted)
-                MessageBox.Show("Connected");
-
-            bc = bl.EndAcceptBluetoothClient(ar);
-            s = bc.GetStream(); 
-        }
 
         private void Connect_Click(object sender, RoutedEventArgs e)
         {
