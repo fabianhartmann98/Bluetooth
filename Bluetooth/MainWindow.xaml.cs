@@ -61,6 +61,9 @@ namespace Bluetooth
                 int i = Devices.SelectedIndex;
                 Guid serviceClass = Guid.NewGuid();
                 BluetoothDeviceInfo device = infos[i];
+
+                device.SetServiceState(BluetoothService.SerialPort, true, true);
+
                 BluetoothSecurity.PairRequest(device.DeviceAddress, "0000");
                 
                 if (device.Authenticated)
