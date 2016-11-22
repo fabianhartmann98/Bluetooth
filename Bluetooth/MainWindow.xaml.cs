@@ -26,7 +26,14 @@ namespace Bluetooth
         BluetoothClient bc;
         BluetoothDeviceInfo[] infos;
         Stream s;
-        BluetoothListener bl; 
+        BluetoothListener bl;
+        const int buf_len = 256;
+        byte[] RX_buf = new byte[buf_len]; 
+        byte[] TX_buf = new byte[buf_len];
+        int rx_head = 0;
+        int tx_head = 0;
+        int rx_tail = 0;
+        int tx_tail = 0; 
         public MainWindow()
         {
             InitializeComponent();
@@ -50,7 +57,21 @@ namespace Bluetooth
             if (ar.IsCompleted)
                 MessageBox.Show("Connected");
             
-            s = bc.GetStream(); 
+            s = bc.GetStream();
+            s.BeginRead(RX_buf, rx_tail, buf_len - rx_tail, beginRead_cal, s);
+        }
+
+        private void beginRead_cal(IAsyncResult ar)
+        {
+            rx_tail += s.EndRead(ar);
+            for (int i = rx_head; i < rx_tail; i++)
+            {
+                Receive_tb.Text += RX_buf[i]; 
+            }
+            rx_tail = 0;
+            rx_head = 0;
+
+            s.BeginRead(RX_buf, rx_tail, buf_len - rx_tail, beginRead_cal, s);
         }
 
 
@@ -78,7 +99,14 @@ namespace Bluetooth
 
         private void Send_b_Click(object sender, RoutedEventArgs e)
         {
-
+            foreach (char item in Send_tb.Text)
+            {
+                TX_buf[tx_tail++] = Convert.ToByte(item);                
+            }
+            Send_tb.Text = "";
+            s.Write(TX_buf, tx_head, tx_tail - tx_head);
+            tx_head = 0;
+            tx_tail = 0; 
         }
 
 
