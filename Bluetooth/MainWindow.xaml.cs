@@ -30,9 +30,7 @@ namespace Bluetooth
         public MainWindow()
         {
             InitializeComponent();
-            string [] typ = {"SERVER","CLIENT"};
-            Type.ItemsSource = typ;
-            Type.SelectedIndex = 0; 
+            
 
             bc = new BluetoothClient();
 
@@ -57,14 +55,6 @@ namespace Bluetooth
             }
         }
 
-        private void Listener_ac(IAsyncResult ar)
-        {
-            if (ar.IsCompleted)
-                MessageBox.Show("Connected");
-
-            bc = bl.EndAcceptBluetoothClient(ar);
-            s = bc.GetStream(); 
-        }
 
         private void Connect_Click(object sender, RoutedEventArgs e)
         {
@@ -95,24 +85,6 @@ namespace Bluetooth
 
         }
 
-        private void Type_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            Type.ToString();
-            if (Type.SelectedItem.ToString() == "SERVER") ;
-            //{
-            //    Connect_but.IsEnabled = false;
-            //    bl= new BluetoothListener(new Guid());
-            //    bl.Start();
-            //    //bl.BeginAcceptBluetoothClient(new AsyncCallback(Connect_ac), bl); 
-            //}
-            else
-            {
-                if (bl != null)
-                {
-                    bl.Stop();
-                }
-            }
-        }
 
 
     }
