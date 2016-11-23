@@ -52,13 +52,14 @@ namespace Bluetooth
         }
 
 
-        private async void Connect_ac(IAsyncResult ar)
+        private void Connect_ac(IAsyncResult ar)
         {
             if (ar.IsCompleted)
                 MessageBox.Show("Connected");
-
-            s = bc.GetStream();
-            await receifingData();
+            if(bc.Connected)
+                s = bc.GetStream();
+            //Receive_tb.Text = s.Read(RX_buf, rx_tail, buf_len - tx_tail).ToString();
+            //await receifingData();
 
         }
 
@@ -112,6 +113,7 @@ namespace Bluetooth
             }
             Send_tb.Text = "";
             s.Write(TX_buf, tx_head, tx_tail - tx_head);
+            s.Flush(); 
             tx_head = 0;
             tx_tail = 0; 
         }
