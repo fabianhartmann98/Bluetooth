@@ -50,28 +50,35 @@ namespace Bluetooth
             Devices.ItemsSource = names;
             Devices.SelectedIndex = 0;
         }
-        
 
-        private void Connect_ac(IAsyncResult ar)
+
+        private async void Connect_ac(IAsyncResult ar)
         {
             if (ar.IsCompleted)
                 MessageBox.Show("Connected");
-            
+
             s = bc.GetStream();
-            s.BeginRead(RX_buf, rx_tail, buf_len - rx_tail, beginRead_cal, s);
+            await receifingData();
+
+        }
+
+        private async Task receifingData()
+        {
+            while (true)
+            {
+                rx_tail += await s.ReadAsync(RX_buf, rx_tail, buf_len - rx_tail);
+                for (int i = rx_head; i < rx_tail; i++)
+                {
+                    Receive_tb.Text += RX_buf[i];
+                }
+                rx_tail = 0;
+                rx_head = 0;
+            }
         }
 
         private void beginRead_cal(IAsyncResult ar)
         {
-            rx_tail += s.EndRead(ar);
-            for (int i = rx_head; i < rx_tail; i++)
-            {
-                Receive_tb.Text += RX_buf[i]; 
-            }
-            rx_tail = 0;
-            rx_head = 0;
-
-            s.BeginRead(RX_buf, rx_tail, buf_len - rx_tail, beginRead_cal, s);
+            
         }
 
 
