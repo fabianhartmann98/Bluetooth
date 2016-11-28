@@ -16,6 +16,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using System.Management;
 
 namespace Bluetooth
 {
@@ -32,7 +33,47 @@ namespace Bluetooth
         private int baudrate = 38400;
         private StopBits stopbits = StopBits.One;
         private int databits = 8;
-        private Parity parity = Parity.None; 
+        private Parity parity = Parity.None;
+
+        public static bool DoesSerialDeviceExist(string name)
+        {
+            using (var search = new ManagementObjectSearcher
+                ("SELECT * FROM WIN32_SerialPort"))
+            {
+                string[] portnames = SerialPort.GetPortNames();
+                var ports = search.Get().Cast<ManagementBaseObject>().ToList();
+
+                var tList = (from n in portnames
+                             join p in ports on n equals p["DeviceID"].ToString()
+                             select n + " - " + p["Caption"]).ToList();
+
+                string serial = tList.FirstOrDefault(o => o.Contains(name));
+
+                bool isAvailable = false;
+                if (serial != null)
+                {
+                    isAvailable = true;
+                }
+
+                return isAvailable;
+            }
+        }
+
+        public delegate void TextBoxStringDelegate(TextBox tb, string text);  // defines a delegate type
+
+        public void SetText(TextBox control, string text)
+        {
+            if (!control.Dispatcher.CheckAccess())
+            {
+                control.Dispatcher.Invoke(new TextBoxStringDelegate(SetText), new object[] { control, text });  // invoking itself
+            }
+            else
+            {
+                control.Text+= text;      // the "functional part", executing only on the main thread
+            }
+        }
+
+
 
         public MainWindow()
         {
@@ -50,6 +91,8 @@ namespace Bluetooth
             }
             Devices.ItemsSource = names;
             Devices.SelectedIndex = 0;
+
+            M
         }
         
 
@@ -62,6 +105,7 @@ namespace Bluetooth
                     bc.Close();
                     string[] newports = SerialPort.GetPortNames();
                     string addedport = "";
+                    
                     foreach (var item in newports)
                     {
                         bool IsAnOldOne = false;
@@ -100,33 +144,35 @@ namespace Bluetooth
 
         private void sp_DataReceived(object sender, SerialDataReceivedEventArgs e)
         {
-            throw new NotImplementedException();
+            SetText(Receive_tb, sp.ReadExisting());
         }
 
 
         private void Connect_Click(object sender, RoutedEventArgs e)
         {
-            try
-            {
-                int i = Devices.SelectedIndex;
-                Guid serviceClass = Guid.NewGuid();
-                BluetoothDeviceInfo device = infos[i];
+            //try
+            //{
+            //    int i = Devices.SelectedIndex;
+            //    Guid serviceClass = Guid.NewGuid();
+            //    BluetoothDeviceInfo device = infos[i];
 
-                device.SetServiceState(BluetoothService.SerialPort, true);
+            //    device.SetServiceState(BluetoothService.SerialPort, true);
 
-                BluetoothSecurity.PairRequest(device.DeviceAddress, "0000");
-                
-                if (device.Authenticated)
-                {
-                    bc.BeginConnect(device.DeviceAddress, BluetoothService.SerialPort, new AsyncCallback(Connect_ac), device);
-                }
+            //    BluetoothSecurity.PairRequest(device.DeviceAddress, "0000");
 
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(ex.Message);
-                throw;
-            }
+            //    if (device.Authenticated)
+            //    {
+            //        bc.BeginConnect(device.DeviceAddress, BluetoothService.SerialPort, new AsyncCallback(Connect_ac), device);
+            //    }
+
+            //}
+            //catch (Exception ex)
+            //{
+            //    MessageBox.Show(ex.Message);
+            //    throw;
+            //}
+            settingUpSerialPort("COM7");
+            sp.Open();
         }
 
         private void Send_b_Click(object sender, RoutedEventArgs e)
