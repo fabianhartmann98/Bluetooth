@@ -35,7 +35,7 @@ namespace Bluetooth
         private int databits = 8;
         private Parity parity = Parity.None;
 
-        public static bool DoesSerialDeviceExist(string name)
+        public static string DoesSerialDeviceExist(string name)
         {
             using (var search = new ManagementObjectSearcher
                 ("SELECT * FROM WIN32_SerialPort"))
@@ -49,13 +49,9 @@ namespace Bluetooth
 
                 string serial = tList.FirstOrDefault(o => o.Contains(name));
 
-                bool isAvailable = false;
-                if (serial != null)
-                {
-                    isAvailable = true;
-                }
+                
 
-                return isAvailable;
+                return serial.Split(' ')[0];
             }
         }
 
@@ -92,7 +88,8 @@ namespace Bluetooth
             Devices.ItemsSource = names;
             Devices.SelectedIndex = 0;
 
-            M
+            string port = DoesSerialDeviceExist("Silicon Labs CP210x USB to UART Bridge");
+            string x = port;
         }
         
 
@@ -123,7 +120,7 @@ namespace Bluetooth
                             break;
                         }
                     }
-                    settingUpSerialPort("COM6");
+                    settingUpSerialPort(DoesSerialDeviceExist("Free2move"));
                     sp.Open(); 
                 }
 
@@ -150,29 +147,29 @@ namespace Bluetooth
 
         private void Connect_Click(object sender, RoutedEventArgs e)
         {
-            //try
-            //{
-            //    int i = Devices.SelectedIndex;
-            //    Guid serviceClass = Guid.NewGuid();
-            //    BluetoothDeviceInfo device = infos[i];
+            try
+            {
+                int i = Devices.SelectedIndex;
+                Guid serviceClass = Guid.NewGuid();
+                BluetoothDeviceInfo device = infos[i];
 
-            //    device.SetServiceState(BluetoothService.SerialPort, true);
+                device.SetServiceState(BluetoothService.SerialPort, true);
 
-            //    BluetoothSecurity.PairRequest(device.DeviceAddress, "0000");
+                BluetoothSecurity.PairRequest(device.DeviceAddress, "0000");
 
-            //    if (device.Authenticated)
-            //    {
-            //        bc.BeginConnect(device.DeviceAddress, BluetoothService.SerialPort, new AsyncCallback(Connect_ac), device);
-            //    }
+                if (device.Authenticated)
+                {
+                    bc.BeginConnect(device.DeviceAddress, BluetoothService.SerialPort, new AsyncCallback(Connect_ac), device);
+                }
 
-            //}
-            //catch (Exception ex)
-            //{
-            //    MessageBox.Show(ex.Message);
-            //    throw;
-            //}
-            settingUpSerialPort("COM7");
-            sp.Open();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+                throw;
+            }
+            //settingUpSerialPort("COM7");
+            //sp.Open();
         }
 
         private void Send_b_Click(object sender, RoutedEventArgs e)
