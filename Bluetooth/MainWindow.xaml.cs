@@ -28,12 +28,13 @@ namespace Bluetooth
         BluetoothClient bc;
         BluetoothDeviceInfo[] infos;
         SerialPort sp = new SerialPort();
-        string[] ports;
 
         private int baudrate = 38400;
         private StopBits stopbits = StopBits.One;
         private int databits = 8;
         private Parity parity = Parity.None;
+
+        private string s_device; 
 
         public static string DoesSerialDeviceExist(string name)
         {
@@ -75,7 +76,6 @@ namespace Bluetooth
         {
             InitializeComponent();
 
-            ports = SerialPort.GetPortNames(); 
 
             bc = new BluetoothClient();
 
@@ -88,8 +88,8 @@ namespace Bluetooth
             Devices.ItemsSource = names;
             Devices.SelectedIndex = 0;
 
-            string port = DoesSerialDeviceExist("Silicon Labs CP210x USB to UART Bridge");
-            string x = port;
+            //string port = DoesSerialDeviceExist("Silicon Labs CP210x USB to UART Bridge");
+            //string x = port;
         }
         
 
@@ -100,26 +100,7 @@ namespace Bluetooth
                 {
                     MessageBox.Show("Connected");
                     bc.Close();
-                    string[] newports = SerialPort.GetPortNames();
-                    string addedport = "";
                     
-                    foreach (var item in newports)
-                    {
-                        bool IsAnOldOne = false;
-                        foreach (var item2 in ports)
-                        {
-                            if(item==item2)
-                            {
-                                IsAnOldOne=true;
-                                break;
-                            }
-                        }
-                        if (!IsAnOldOne)
-                        {
-                            addedport = item;
-                            break;
-                        }
-                    }
                     settingUpSerialPort(DoesSerialDeviceExist("Free2move"));
                     sp.Open(); 
                 }
@@ -152,6 +133,7 @@ namespace Bluetooth
                 int i = Devices.SelectedIndex;
                 Guid serviceClass = Guid.NewGuid();
                 BluetoothDeviceInfo device = infos[i];
+                s_device = infos[i].DeviceName;
 
                 device.SetServiceState(BluetoothService.SerialPort, true);
 
