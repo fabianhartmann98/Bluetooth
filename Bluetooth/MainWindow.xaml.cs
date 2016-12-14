@@ -33,7 +33,8 @@ namespace Bluetooth
         int rx_head = 0;
         int tx_head = 0;
         int rx_tail = 0;
-        int tx_tail = 0; 
+        int tx_tail = 0;
+        string pin = "2017";
         public MainWindow()
         {
             InitializeComponent();
@@ -64,14 +65,32 @@ namespace Bluetooth
         private void beginRead_cal(IAsyncResult ar)
         {
             rx_tail += s.EndRead(ar);
+            
+            //TextBoxUpdate(Receive_tb,Convert.ToString(ASCIIEncoding.ASCII.GetChars( RX_buf,rx_head,rx_tail-rx_head))); 
             for (int i = rx_head; i < rx_tail; i++)
             {
-                Receive_tb.Text += RX_buf[i]; 
+                char temp = (char)RX_buf[i];
+                TextBoxUpdate(Receive_tb, temp.ToString());
             }
+            //TextBoxUpdate(Receive_tb, "this is just shit");
+
             rx_tail = 0;
             rx_head = 0;
 
             s.BeginRead(RX_buf, rx_tail, buf_len - rx_tail, beginRead_cal, s);
+        }
+
+        private void TextBoxUpdate(TextBox textBox, string v)
+        {
+            if (!textBox.Dispatcher.CheckAccess())
+            {
+                textBox.Dispatcher.Invoke(
+                     (Action<TextBox, string>)TextBoxUpdate, textBox, v);
+            }
+            else
+            {
+                textBox.Text += v;
+            }
         }
 
 
@@ -82,7 +101,7 @@ namespace Bluetooth
                 int i = Devices.SelectedIndex;
                 Guid serviceClass = Guid.NewGuid();
                 BluetoothDeviceInfo device = infos[i];
-                BluetoothSecurity.PairRequest(device.DeviceAddress, "0000");
+                BluetoothSecurity.PairRequest(device.DeviceAddress, pin);
                 
                 if (device.Authenticated)
                 {
