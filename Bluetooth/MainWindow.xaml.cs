@@ -28,7 +28,7 @@ namespace Bluetooth
         Stream s;
         BluetoothListener bl;
         const int buf_len = 256;
-        byte[] RX_buf = new byte[buf_len]; 
+        byte[] RX_buf = new byte[buf_len];
         byte[] TX_buf = new byte[buf_len];
         int rx_head = 0;
         int tx_head = 0;
@@ -38,15 +38,15 @@ namespace Bluetooth
         public MainWindow()
         {
             InitializeComponent();
-            
+
 
             bc = new BluetoothClient();
 
-            infos = bc.DiscoverDevices(255,false,true,true);
-            string[] names= new string [infos.Length];
+            infos = bc.DiscoverDevices(255, false, true, true);
+            string[] names = new string[infos.Length];
             for (int i = 0; i < infos.Length; i++)
             {
-                names[i] = infos[i].DeviceName; 
+                names[i] = infos[i].DeviceName;
             }
             Devices.ItemsSource = names;
             Devices.SelectedIndex = 0;
@@ -59,10 +59,8 @@ namespace Bluetooth
                 MessageBox.Show("Connected");
 
             s = bc.GetStream();
-            s.BeginRead(RX_buf, rx_tail, RX_buf.Length, beginRead_cal, s);
-
+            s.BeginRead(RX_buf, rx_tail, buf_len - rx_tail, beginRead_cal, s);
         }
-
 
         private void beginRead_cal(IAsyncResult ar)
         {
@@ -79,6 +77,7 @@ namespace Bluetooth
             rx_tail = 0;
             rx_head = 0;
 
+            s.BeginRead(RX_buf, rx_tail, buf_len - rx_tail, beginRead_cal, s);
         }
 
         private void TextBoxUpdate(TextBox textBox, string v)
@@ -103,7 +102,7 @@ namespace Bluetooth
                 Guid serviceClass = Guid.NewGuid();
                 BluetoothDeviceInfo device = infos[i];
                 BluetoothSecurity.PairRequest(device.DeviceAddress, pin);
-                
+
                 if (device.Authenticated)
                 {
                     bc.BeginConnect(device.DeviceAddress, BluetoothService.SerialPort, new AsyncCallback(Connect_ac), device);
@@ -121,12 +120,12 @@ namespace Bluetooth
         {
             foreach (char item in Send_tb.Text)
             {
-                TX_buf[tx_tail++] = Convert.ToByte(item);                
+                TX_buf[tx_tail++] = Convert.ToByte(item);
             }
             Send_tb.Text = "";
             s.Write(TX_buf, tx_head, tx_tail - tx_head);
             tx_head = 0;
-            tx_tail = 0; 
+            tx_tail = 0;
         }
 
 
