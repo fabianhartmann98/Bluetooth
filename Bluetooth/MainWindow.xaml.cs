@@ -28,12 +28,14 @@ namespace Bluetooth
         BluetoothClient bc;
         BluetoothDeviceInfo[] infos;
         SerialPort sp = new SerialPort();
-        string[] ports;
 
         private int baudrate = 38400;
         private StopBits stopbits = StopBits.One;
         private int databits = 8;
         private Parity parity = Parity.None;
+
+        private string s_device;
+        private string pin = "1234";
 
         public static string DoesSerialDeviceExist(string name)
         {
@@ -75,8 +77,6 @@ namespace Bluetooth
         {
             InitializeComponent();
 
-            ports = SerialPort.GetPortNames(); 
-
             bc = new BluetoothClient();
 
             infos = bc.DiscoverDevices(255,false,true,true);
@@ -100,9 +100,9 @@ namespace Bluetooth
                 //{
                     MessageBox.Show("Connected");
                     bc.Close();
+                    
+                    settingUpSerialPort(DoesSerialDeviceExist(s_device));
 
-                    //settingUpSerialPort(DoesSerialDeviceExist("Free2move"));
-                    settingUpSerialPort("Com8");
                     sp.Open(); 
                 //}
 
@@ -134,10 +134,11 @@ namespace Bluetooth
                 int i = Devices.SelectedIndex;
                 Guid serviceClass = Guid.NewGuid();
                 BluetoothDeviceInfo device = infos[i];
+                s_device = infos[i].DeviceName;
 
                 device.SetServiceState(BluetoothService.SerialPort, true);
 
-                BluetoothSecurity.PairRequest(device.DeviceAddress, "0000");
+                BluetoothSecurity.PairRequest(device.DeviceAddress,pin);
 
                 if (device.Authenticated)
                 {
