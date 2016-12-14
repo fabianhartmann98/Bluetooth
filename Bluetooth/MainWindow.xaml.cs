@@ -88,41 +88,23 @@ namespace Bluetooth
             Devices.ItemsSource = names;
             Devices.SelectedIndex = 0;
 
-            string port = DoesSerialDeviceExist("Silicon Labs CP210x USB to UART Bridge");
-            string x = port;
+            //string port = DoesSerialDeviceExist("Silicon Labs CP210x USB to UART Bridge");
+            //string x = port;
         }
         
 
         private void Connect_ac(IAsyncResult ar)
         {
             if (ar.IsCompleted)
-                if (bc.Connected)
-                {
+                //if (bc.Connected)
+                //{
                     MessageBox.Show("Connected");
                     bc.Close();
-                    string[] newports = SerialPort.GetPortNames();
-                    string addedport = "";
-                    
-                    foreach (var item in newports)
-                    {
-                        bool IsAnOldOne = false;
-                        foreach (var item2 in ports)
-                        {
-                            if(item==item2)
-                            {
-                                IsAnOldOne=true;
-                                break;
-                            }
-                        }
-                        if (!IsAnOldOne)
-                        {
-                            addedport = item;
-                            break;
-                        }
-                    }
-                    settingUpSerialPort(DoesSerialDeviceExist("Free2move"));
+
+                    //settingUpSerialPort(DoesSerialDeviceExist("Free2move"));
+                    settingUpSerialPort("Com8");
                     sp.Open(); 
-                }
+                //}
 
         }
 
