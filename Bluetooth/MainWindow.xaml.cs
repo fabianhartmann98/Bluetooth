@@ -51,21 +51,23 @@ namespace Bluetooth
             Devices.ItemsSource = names;
             Devices.SelectedIndex = 0;
         }
-        
+
 
         private void Connect_ac(IAsyncResult ar)
         {
             if (ar.IsCompleted)
                 MessageBox.Show("Connected");
-            
+
             s = bc.GetStream();
-            s.BeginRead(RX_buf, rx_tail, buf_len - rx_tail, beginRead_cal, s);
+            s.BeginRead(RX_buf, rx_tail, RX_buf.Length, beginRead_cal, s);
+
         }
+
 
         private void beginRead_cal(IAsyncResult ar)
         {
             rx_tail += s.EndRead(ar);
-            
+
             //TextBoxUpdate(Receive_tb,Convert.ToString(ASCIIEncoding.ASCII.GetChars( RX_buf,rx_head,rx_tail-rx_head))); 
             for (int i = rx_head; i < rx_tail; i++)
             {
@@ -77,7 +79,6 @@ namespace Bluetooth
             rx_tail = 0;
             rx_head = 0;
 
-            s.BeginRead(RX_buf, rx_tail, buf_len - rx_tail, beginRead_cal, s);
         }
 
         private void TextBoxUpdate(TextBox textBox, string v)
