@@ -127,88 +127,95 @@ namespace Bluetooth
         {
             try
             {
-                while (rx_tail!=0)  //as long as there is some data in it (or the checksum does not fit or the full packet hasn't arrived yet)
+                while (rx_tail != 0)  //as long as there is some data in it (or the checksum does not fit or the full packet hasn't arrived yet)
                 {
                     //correcting 
-                    //when rx_tail is 0: it is going to overwrite it anyway
-                    //when rx_tail is not 0 and the buf(0) is not a präamble: shift it one bit to the left
-                    while (rx_tail!=0 && AccessRXBuf(0) != BT_Protocoll.PräambleBytes[0])      
+                    //if rx_tail is greater 2: it is going to overwrite it anyway
+                    //if one of the präambles is wrong
+                    //both combinded: shift(1) because didn't receive correct präamble
+                    while (rx_tail > 2 && (AccessRXBuf(0) != BT_Protocoll.PräambleBytes[0] || AccessRXBuf(rx_head + 1) != BT_Protocoll.PräambleBytes[1]))
+                    {
+                        Logger("Received something which shouldn't be here; after or before packet arrived");
                         shiftingRXBuf(1);
-
-                    //if the präamble is correct
-                    if (AccessRXBuf(rx_head) == BT_Protocoll.PräambleBytes[0]
-                            && AccessRXBuf(rx_head + 1) == BT_Protocoll.PräambleBytes[1])
-                    {
-                        int framelength = AccessRXBuf(rx_head + 2); //get the framelength (is the 3. Byte)
-                        //if the last Byte is the CarriageReturn the full packet has arrived
-                        if (AccessRXBuf(rx_head + BT_Protocoll.FrameLengthOverhead + framelength - 1) == BT_Protocoll.CarriageReturn)
-                        {
-                            byte[] crcpacket = new byte[framelength];   //is because the präamble and the CR is not included (in the framelenght the cr and crc is included but in the crc the cr is not included instead the framelength)
-                            Array.Copy(RX_buf, rx_head + 2, crcpacket, 0, crcpacket.Length); //copy the for the crc intresting byte in the crcpacket
-                            if (crc_CheckWithCRC(crcpacket) != 0)   //if the crc is not fitting
-                            {
-                                Logger("didn't pass Checksum");     //log it and end Datamanager
-                                return;
-                            }
-                            switch (AccessRXBuf(rx_head + 3))       //which Command is it
-                            {
-                                case (BT_Protocoll.StayingAliveAnswer):
-                                    Logger("received StayingAliveAnswer");
-                                    break;
-                                case (BT_Protocoll.StayingAliveCommand):
-                                    Logger("received StayingAliveCommand");
-                                    break;
-                                case (BT_Protocoll.InitCommand):
-                                    Logger("received InitCommand");
-                                    break;
-                                case (BT_Protocoll.InitAnswer):
-                                    Logger("received InitAnswer");
-                                    break;
-                                case (BT_Protocoll.MeasuredDataCommand):
-                                    Logger("received MeasuredDataCommand");
-                                    break;
-                                case (BT_Protocoll.MeasuredDataAnswer):
-                                    Logger("received MeasuredDataAnswer");
-                                    break;
-                                case (BT_Protocoll.MotorAdjustingCommand):
-                                    Logger("received MotorAdjustingCommand");
-                                    break;
-                                case (BT_Protocoll.MotorAdjustingAnswer):
-                                    Logger("received MotorAdjustingAnswer");
-                                    break;
-                                case (BT_Protocoll.StatusRequestCommand):
-                                    Logger("received StatusRequestCommand");
-                                    break;
-                                case (BT_Protocoll.StatusRequestAnswer):
-                                    Logger("received StatusRequestAnswer");
-                                    break;
-                                case (BT_Protocoll.PositionRequestCommand):
-                                    Logger("received PositionRequestCommand");
-                                    break;
-                                case (BT_Protocoll.PositionRequestAnswer):
-                                    Logger("received PositionRequestAnswer");
-                                    break;
-                                case (BT_Protocoll.MaxGapRequestCommand):
-                                    Logger("received MaxGapRequestCommand");
-                                    break;
-                                case (BT_Protocoll.MaxGapRequestAnswer):
-                                    Logger("received MaxGapRequestAnswer");
-                                    break;
-                                default:
-                                    break;
-                            }
-
-                            shiftingRXBuf(framelength + BT_Protocoll.FrameLengthOverhead);
-
-                        }
-                        else
-                            break;  //finished reading because not full packet arrived yet
                     }
-                    else
+
+                    if (rx_tail < 6) //if the minimum frame lenght has not arrived yet
+                        return;
+
+                    //now etleast there is a correct präamble and at least 6 recieved bytes 
+
+                    int framelength = AccessRXBuf(rx_head + 2); //get the framelength (is the 3. Byte)
+
+                    if (rx_tail < framelength + BT_Protocoll.FrameLengthOverhead)
+                        return; //not full packege arrived yet
+
+                    //if the last Byte is not the CarriageReturn the full packet has arrived but is not correct
+                    if (AccessRXBuf(rx_head + BT_Protocoll.FrameLengthOverhead + framelength - 1) != BT_Protocoll.CarriageReturn)
                     {
-                        if (rx_tail > 1)    //the first präamble is ok (cause it skipped the correcting and there is more than one byte in RX_buf) but the second one is not ok
-                            shiftingRXBuf(1);                        
+                        Logger("Received something which shouldn't be here; in the packet");
+                        shiftingRXBuf(1);
+                        break;
                     }
+
+                    byte[] crcpacket = new byte[framelength];   //is because the präamble and the CR is not included (in the framelenght the cr and crc is included but in the crc the cr is not included instead the framelength)
+                    Array.Copy(RX_buf, rx_head + 2, crcpacket, 0, crcpacket.Length); //copy the for the crc intresting byte in the crcpacket
+                    if (crc_CheckWithCRC(crcpacket) != 0)   //if the crc is not fitting
+                    {
+                        Logger("didn't pass Checksum");     //log it and end Datamanager
+                        return;
+                    }
+                    switch (AccessRXBuf(rx_head + 3))       //which Command is it
+                    {
+                        case (BT_Protocoll.StayingAliveAnswer):
+                            Logger("received StayingAliveAnswer");
+                            break;
+                        case (BT_Protocoll.StayingAliveCommand):
+                            Logger("received StayingAliveCommand");
+                            break;
+                        case (BT_Protocoll.InitCommand):
+                            Logger("received InitCommand");
+                            break;
+                        case (BT_Protocoll.InitAnswer):
+                            Logger("received InitAnswer");
+                            break;
+                        case (BT_Protocoll.MeasuredDataCommand):
+                            Logger("received MeasuredDataCommand");
+                            break;
+                        case (BT_Protocoll.MeasuredDataAnswer):
+                            Logger("received MeasuredDataAnswer");
+                            break;
+                        case (BT_Protocoll.MotorAdjustingCommand):
+                            Logger("received MotorAdjustingCommand");
+                            break;
+                        case (BT_Protocoll.MotorAdjustingAnswer):
+                            Logger("received MotorAdjustingAnswer");
+                            break;
+                        case (BT_Protocoll.StatusRequestCommand):
+                            Logger("received StatusRequestCommand");
+                            break;
+                        case (BT_Protocoll.StatusRequestAnswer):
+                            Logger("received StatusRequestAnswer");
+                            break;
+                        case (BT_Protocoll.PositionRequestCommand):
+                            Logger("received PositionRequestCommand");
+                            break;
+                        case (BT_Protocoll.PositionRequestAnswer):
+                            Logger("received PositionRequestAnswer");
+                            break;
+                        case (BT_Protocoll.MaxGapRequestCommand):
+                            Logger("received MaxGapRequestCommand");
+                            break;
+                        case (BT_Protocoll.MaxGapRequestAnswer):
+                            Logger("received MaxGapRequestAnswer");
+                            break;
+                        default:
+                            break;
+                    }
+
+                    shiftingRXBuf(framelength + BT_Protocoll.FrameLengthOverhead);
+
+
+
                 }
 
 	        }
