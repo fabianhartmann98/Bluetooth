@@ -63,6 +63,8 @@ namespace Bluetooth
         private void Send_b_Click(object sender, RoutedEventArgs e)
         {
             bt.SendStayingAlive();
+            bt.SendInit();
+            bt.SendMotorAdjusting(300);
         }
 
 

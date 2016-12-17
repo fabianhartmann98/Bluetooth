@@ -14,7 +14,6 @@ namespace Bluetooth
         BluetoothClient bc;
         BluetoothDeviceInfo[] infos;
         Stream s;
-        BluetoothListener bl;
         const int buf_len = 256;
         byte[] RX_buf = new byte[buf_len];
         int rx_head = 0;
@@ -37,7 +36,6 @@ namespace Bluetooth
             file.Close();
 
         }
-
         
 
         static byte[] crc_table = new byte[256];
@@ -46,7 +44,7 @@ namespace Bluetooth
 
         public string DeviceName { get; private set; }
         private BluetoothDeviceInfo deviceinfo; 
-
+        
         private string pin = "2017";
 
         public string Pin
@@ -57,7 +55,8 @@ namespace Bluetooth
 
         public BT_connection()
         {
-            DeletLogger(); 
+            DeletLogger();
+            crc_CreateTable();              
         }        
 
         
@@ -80,14 +79,14 @@ namespace Bluetooth
             rx_tail += s.EndRead(ar);
             DataManager();
 
-            s.BeginRead(RX_buf, rx_tail, buf_len-rx_tail, beginRead_cal, s);
-            //s.BeginRead(RX_buf, rx_tail, buf_len - rx_tail, beginRead_cal, s);
+            s.BeginRead(RX_buf, rx_tail, buf_len-rx_tail, beginRead_cal, s);            
+            //s.BeginRead(RX_buf, rx_tail, buf_len, beginRead_cal, s);
 
         }
 
         private byte AccessRXBuf(int i)
         { 
-            return RX_buf[i%256];
+            return RX_buf[i%buf_len];
         }
 
         private void shiftingRXBuf(int length)
@@ -110,7 +109,7 @@ namespace Bluetooth
                         {
                             byte[] crcpacket = new byte[framelength];
                             Array.Copy(RX_buf, rx_head + 2, crcpacket, 0, crcpacket.Length);
-                            if (ComputeChecksum(crcpacket) != 0)
+                            if (crc_CheckWithCRC(crcpacket) != 0)
                             {
                                 Logger("didn't pass Checksum");
                                 return;
@@ -119,11 +118,45 @@ namespace Bluetooth
                             {
                                 case (BT_Protocoll.StayingAliveAnswer):
                                     Logger("received StayingAliveAnswer");
-
                                     break;
                                 case (BT_Protocoll.StayingAliveCommand):
-                                    Logger("received StayingAlive");
-
+                                    Logger("received StayingAliveCommand");
+                                    break;
+                                case (BT_Protocoll.InitCommand):
+                                    Logger("received InitCommand");
+                                    break;
+                                case (BT_Protocoll.InitAnswer):
+                                    Logger("received InitAnswer");
+                                    break;
+                                case (BT_Protocoll.MeasuredDataCommand):
+                                    Logger("received MeasuredDataCommand");
+                                    break;
+                                case (BT_Protocoll.MeasuredDataAnswer):
+                                    Logger("received MeasuredDataAnswer");
+                                    break;
+                                case (BT_Protocoll.MotorAdjustingCommand):
+                                    Logger("received MotorAdjustingCommand");
+                                    break;
+                                case (BT_Protocoll.MotorAdjustingAnswer):
+                                    Logger("received MotorAdjustingAnswer");
+                                    break;
+                                case (BT_Protocoll.StatusRequestCommand):
+                                    Logger("received StatusRequestCommand");
+                                    break;
+                                case (BT_Protocoll.StatusRequestAnswer):
+                                    Logger("received StatusRequestAnswer");
+                                    break;
+                                case (BT_Protocoll.PositionRequestCommand):
+                                    Logger("received PositionRequestCommand");
+                                    break;
+                                case (BT_Protocoll.PositionRequestAnswer):
+                                    Logger("received PositionRequestAnswer");
+                                    break;
+                                case (BT_Protocoll.MaxGapRequestCommand):
+                                    Logger("received MaxGapRequestCommand");
+                                    break;
+                                case (BT_Protocoll.MaxGapRequestAnswer):
+                                    Logger("received MaxGapRequestAnswer");
                                     break;
                                 default:
                                     break;
@@ -181,7 +214,7 @@ namespace Bluetooth
             }
         }
 
-        private void CreateTable()
+        private void crc_CreateTable()
         {
             for (int i = 0; i < 256; ++i)
             {
@@ -201,35 +234,151 @@ namespace Bluetooth
             }
         }
 
-        private static byte ComputeChecksum(params byte[] bytes)
+        private static byte crc_ComputeChecksum(params byte[] bytes)
+        {
+            byte crc = 0;
+            if (bytes != null && bytes.Length > 0)
+            {        
+                //starting at 2 because the Präamble is not included int crc
+                for (int i = 2; i < bytes.Length-2; i++) //-2 because the last 0 (CRC and CR) shouldn't be used to calculate crc
+                    //this works only, when the first one is only done whith the values 
+                {
+                    crc = crc_table[crc ^ bytes[i]];
+                }
+            }
+            return crc;
+        }
+
+        private static byte crc_CheckWithCRC(params byte[] bytes)
         {
             byte crc = 0;
             if (bytes != null && bytes.Length > 0)
             {
                 foreach (byte b in bytes)
                 {
-                    crc = crc_table[crc ^ b];
+                    crc = crc_table[crc ^ b];                    
                 }
             }
             return crc;
-        }      
+        } 
+        
+  
+
 
         private void SettingPräamble(ref byte[] b)
         {
             b[0] = BT_Protocoll.PräambleBytes[0];
             b[1] = BT_Protocoll.PräambleBytes[1]; 
-        }       
+        }
+
+        public void SendInit()
+        {
+            int packetlength = BT_Protocoll.InitLength + BT_Protocoll.FrameLengthOverhead;
+
+            byte[] b = new byte[packetlength];
+            SettingPräamble(ref b);
+            b[2] = (byte)BT_Protocoll.InitLength;
+            b[3] = BT_Protocoll.InitCommand;
+
+            b[packetlength - 2] = crc_ComputeChecksum(b);
+            b[packetlength - 1] = BT_Protocoll.CarriageReturn;
+            Send(b);
+            Logger("sending Init");
+        }
 
         public void SendStayingAlive()
-        { 
-            byte[] b= new byte[BT_Protocoll.StayingAliveLength+BT_Protocoll.FrameLengthOverhead];
+        {
+            int packetlength = BT_Protocoll.StayingAliveLength + BT_Protocoll.FrameLengthOverhead;
+            byte[] b= new byte[packetlength];
             SettingPräamble(ref b);
             b[2] = (byte)BT_Protocoll.StayingAliveLength;
             b[3] = BT_Protocoll.StayingAliveCommand;
-            b[4] = ComputeChecksum(b);
-            b[5] = BT_Protocoll.CarriageReturn;
+
+            b[packetlength-2] = crc_ComputeChecksum(b);
+            b[packetlength-1] = BT_Protocoll.CarriageReturn;
             Send(b);
-            Logger("sending StayingAlive\n");
+            Logger("sending StayingAlive");
+        }
+
+        public void SendMeasuredDataAnswer(byte notlastData)
+        {
+            int packetlength = BT_Protocoll.MeasuredDataAnswerLength + BT_Protocoll.FrameLengthOverhead;
+
+            byte[] b = new byte[packetlength];
+            SettingPräamble(ref b);
+            b[2] = (byte)BT_Protocoll.MeasuredDataAnswerLength;
+            b[3] = BT_Protocoll.MeasuredDataAnswer;
+
+            b[4] = notlastData;
+
+            b[packetlength-2] = crc_ComputeChecksum(b);
+            b[packetlength-1] = BT_Protocoll.CarriageReturn;
+            Send(b);
+            Logger("sending MeasuredDataAnswer");
+        }
+
+        public void SendMotorAdjusting(int gap)
+        {
+            int packetlength = BT_Protocoll.MotorAdjustingLength + BT_Protocoll.FrameLengthOverhead;
+
+            byte[] b = new byte[packetlength];
+            SettingPräamble(ref b);
+            b[2] = (byte)BT_Protocoll.MotorAdjustingLength;
+            b[3] = BT_Protocoll.MotorAdjustingCommand;
+
+            b[4] = (byte)(gap >> 8);
+            b[5] = (byte)(gap&0xFF);
+
+            b[packetlength - 2] = crc_ComputeChecksum(b);
+            b[packetlength - 1] = BT_Protocoll.CarriageReturn;
+            Send(b);
+            Logger("sending MotorAdjusting");
+        }
+
+        public void SendStatusRequest()
+        {
+            int packetlength = BT_Protocoll.StatusRequestLength + BT_Protocoll.FrameLengthOverhead;
+
+            byte[] b = new byte[packetlength];
+            SettingPräamble(ref b);
+            b[2] = (byte)BT_Protocoll.StatusRequestLength;
+            b[3] = BT_Protocoll.StatusRequestCommand;
+
+            b[packetlength-2] = crc_ComputeChecksum(b);
+            b[packetlength-1] = BT_Protocoll.CarriageReturn;
+            Send(b);
+            Logger("sending StatusRequest");
+        }
+
+        public void SendPositionRequest()
+        {
+            int packetlength = BT_Protocoll.PositionRequestLength + BT_Protocoll.FrameLengthOverhead;
+
+            byte[] b = new byte[packetlength];
+            SettingPräamble(ref b);
+            b[2] = (byte)BT_Protocoll.PositionRequestLength;
+            b[3] = BT_Protocoll.PositionRequestCommand;
+
+            b[packetlength-2] = crc_ComputeChecksum(b);
+            b[packetlength-1] = BT_Protocoll.CarriageReturn;
+            Send(b);
+            Logger("sending PositionRequest");
+        }
+
+        public void SendMaxGapRequest()
+        {
+            int packetlength = BT_Protocoll.MaxGapRequestLength + BT_Protocoll.FrameLengthOverhead;
+
+            byte[] b = new byte[packetlength];
+            SettingPräamble(ref b);
+            b[2] = (byte)BT_Protocoll.MaxGapRequestLength;
+
+            b[3] = BT_Protocoll.MaxGapRequestCommand;
+
+            b[packetlength-2] = crc_ComputeChecksum(b);
+            b[packetlength-1] = BT_Protocoll.CarriageReturn;
+            Send(b);
+            Logger("sending MaxGapRequest");
         }
 
         public void Send(byte[] b)
@@ -247,6 +396,7 @@ namespace Bluetooth
             if (DeviceConnected != null)
                 DeviceConnected(this, new EventArgs());
         }
+
 
 
 
