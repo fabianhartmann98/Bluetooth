@@ -11,41 +11,40 @@ namespace Bluetooth
 {
     public class BT_connection
     {
-        BluetoothClient bc;
-        BluetoothDeviceInfo[] infos;
-        Stream s;
-        const int buf_len = 256;
-        byte[] RX_buf = new byte[buf_len];
-        int rx_head = 0;
-        int rx_tail = 0;
 
         private void Logger(String lines)
         {
-         // Write the string to a file.append mode is enabled so that the log
-         // lines get appended to  test.txt than wiping content and writing the log
-          System.IO.StreamWriter file = new System.IO.StreamWriter("Log.txt",true);
-          file.Write(DateTime.Now.ToString()+": ");
-          file.WriteLine(lines);
-          file.Close();
+            // Write the string to a file.append mode is enabled so that the log
+            // lines get appended to  test.txt than wiping content and writing the log
+            System.IO.StreamWriter file = new System.IO.StreamWriter("Log.txt", true);
+            file.Write(DateTime.Now.ToString() + ": ");
+            file.WriteLine(lines);
+            file.Close();
         }
 
         private void DeletLogger()
         {
-            System.IO.StreamWriter file = new System.IO.StreamWriter("Log.txt",false);
+            System.IO.StreamWriter file = new System.IO.StreamWriter("Log.txt", false);
             file.Write("");
             file.Close();
 
         }
-        
 
-        static byte[] crc_table = new byte[256];
+        BluetoothClient bc;                 //the client which it is going to be connected to 
+        BluetoothDeviceInfo[] infos;        //all the available DeviceInfos 
+        Stream s;                           //the stream to write and read on   
+        const int buf_len = 256;            //the buffer Length of the RX
+        byte[] RX_buf = new byte[buf_len];  //the buffer for RX 
+        int rx_head = 0;                    //what we have already read (should always be 0)
+        int rx_tail = 0;                    //the length in the array thath is filled but not read yet 
+
+        static byte[] crc_table = new byte[256];        //the table to compute te crc8
          // x8 + x7 + x6 + x4 + x2 + 1
-        const byte crc_poly = 0xd5;
+        const byte crc_poly = 0xd5;                     //the key for the crc8 = 111010101=0x1d5
 
-        public string DeviceName { get; private set; }
-        private BluetoothDeviceInfo deviceinfo; 
+        private BluetoothDeviceInfo deviceinfo;         //the deviceInfo of the connected device
         
-        private string pin = "2017";
+        private string pin = "2017";                    //the pin to connect to the BT-Modul
 
         public string Pin
         {
@@ -58,9 +57,12 @@ namespace Bluetooth
             DeletLogger();
             crc_CreateTable();              
         }        
-
         
-
+        /// <summary>
+        /// getting al the available Devices in the area 
+        /// uses DiscoverDevices
+        /// </summary>
+        /// <returns>string array with every name of available devices</returns>
         public string[] GetAvailableDevices()
         {
             bc = new BluetoothClient();
@@ -74,6 +76,12 @@ namespace Bluetooth
             return names;
         }
 
+        /// <summary>
+        /// end the reading and adds up to the rx_tail 
+        /// calls DataManager 
+        /// calls BeginRead again
+        /// </summary>
+        /// <param name="ar"></param>
         private void beginRead_cal(IAsyncResult ar)
         {
             rx_tail += s.EndRead(ar);
@@ -84,37 +92,65 @@ namespace Bluetooth
 
         }
 
+        /// <summary>
+        /// modules the input to the buf_len so no out of Range can appear
+        /// </summary>
+        /// <param name="i">index of where data should come from</param>
+        /// <returns>value in the RX_Buf at the index</returns>
         private byte AccessRXBuf(int i)
         { 
             return RX_buf[i%buf_len];
         }
 
+        /// <summary>
+        /// shifting every bit behind and including legnth to the front
+        /// rest gets overwriten 
+        /// decreases rx_tail 
+        /// </summary>
+        /// <param name="length"></param>
         private void shiftingRXBuf(int length)
         {
+            //starts at lenght by the RX buf and copys it to 0
+            //does this until end of RX buf reached
             Array.Copy(RX_buf, length, RX_buf, 0, buf_len - length);
-            rx_tail -= length;
+            if(rx_tail!=0)      //not able to get negative tail 
+                rx_tail -= length;  //decreases rx_tail about length to get the new tail 
+            
         }
 
+        /// <summary>
+        /// checks if the message is completed 
+        /// checks the checksum 
+        /// does stuff according to the command
+        /// </summary>
         private void DataManager()
         {
             try
             {
-                while (true)
+                while (rx_tail!=0)  //as long as there is some data in it (or the checksum does not fit or the full packet hasn't arrived yet)
                 {
+                    //correcting 
+                    //when rx_tail is 0: it is going to overwrite it anyway
+                    //when rx_tail is not 0 and the buf(0) is not a präamble: shift it one bit to the left
+                    while (rx_tail!=0 && AccessRXBuf(0) != BT_Protocoll.PräambleBytes[0])      
+                        shiftingRXBuf(1);
+
+                    //if the präamble is correct
                     if (AccessRXBuf(rx_head) == BT_Protocoll.PräambleBytes[0]
                             && AccessRXBuf(rx_head + 1) == BT_Protocoll.PräambleBytes[1])
                     {
-                        int framelength = AccessRXBuf(rx_head + 2);
+                        int framelength = AccessRXBuf(rx_head + 2); //get the framelength (is the 3. Byte)
+                        //if the last Byte is the CarriageReturn the full packet has arrived
                         if (AccessRXBuf(rx_head + BT_Protocoll.FrameLengthOverhead + framelength - 1) == BT_Protocoll.CarriageReturn)
                         {
-                            byte[] crcpacket = new byte[framelength];
-                            Array.Copy(RX_buf, rx_head + 2, crcpacket, 0, crcpacket.Length);
-                            if (crc_CheckWithCRC(crcpacket) != 0)
+                            byte[] crcpacket = new byte[framelength];   //is because the präamble and the CR is not included (in the framelenght the cr and crc is included but in the crc the cr is not included instead the framelength)
+                            Array.Copy(RX_buf, rx_head + 2, crcpacket, 0, crcpacket.Length); //copy the for the crc intresting byte in the crcpacket
+                            if (crc_CheckWithCRC(crcpacket) != 0)   //if the crc is not fitting
                             {
-                                Logger("didn't pass Checksum");
+                                Logger("didn't pass Checksum");     //log it and end Datamanager
                                 return;
                             }
-                            switch (AccessRXBuf(rx_head + 3))
+                            switch (AccessRXBuf(rx_head + 3))       //which Command is it
                             {
                                 case (BT_Protocoll.StayingAliveAnswer):
                                     Logger("received StayingAliveAnswer");
@@ -166,21 +202,20 @@ namespace Bluetooth
 
                         }
                         else
-                            break;
+                            break;  //finished reading because not full packet arrived yet
                     }
-                    else 
-                        break;
+                    else
+                    {
+                        if (rx_tail > 1)    //the first präamble is ok (cause it skipped the correcting and there is more than one byte in RX_buf) but the second one is not ok
+                            shiftingRXBuf(1);                        
+                    }
                 }
 
 	        }
 	        catch 
 	        {
 		
-	        }
-
-            //correcting 
-            while (AccessRXBuf(0) != BT_Protocoll.PräambleBytes[0] && AccessRXBuf(0)!=0)
-                shiftingRXBuf(1);
+	        }                       
             
         }
         
@@ -188,32 +223,38 @@ namespace Bluetooth
         {
             if (ar.IsCompleted)
             {
-                OnDeviceConnected();
+                OnDeviceConnected(); //calling the Event DeviceConnected
                 Logger("connected to Device: " + deviceinfo.DeviceName + " with Address " + deviceinfo.DeviceAddress);
-                s = bc.GetStream();
-                s.BeginRead(RX_buf, rx_tail, buf_len - rx_tail, beginRead_cal, s);
+                s = bc.GetStream(); //get the Stream to read and write on
+                s.BeginRead(RX_buf, rx_tail, buf_len - rx_tail, beginRead_cal, s);  //start reading 
             }
         }
 
+        /// <summary>
+        /// pair and connect to the device using the Pin
+        /// </summary>
+        /// <param name="DevName">Device name </param>
         public void ConnectToDevice(string DevName)
         {
-            DeviceName = DevName;
             foreach (var item in infos)
             {
-                if (item.DeviceName == DeviceName)
+                if (item.DeviceName == DevName)  //if the name of the device has the name we search for
                 {
-                    deviceinfo = item;
-                    BluetoothSecurity.PairRequest(deviceinfo.DeviceAddress, pin);
+                    deviceinfo = item;      //set the deviceinfo of the connected device
+                    BluetoothSecurity.PairRequest(deviceinfo.DeviceAddress, pin);   //pairing with the given pin
 
                     if (deviceinfo.Authenticated)
                     {
-                        bc.BeginConnect(deviceinfo.DeviceAddress, BluetoothService.SerialPort, new AsyncCallback(Connect_ac),deviceinfo);
+                        bc.BeginConnect(deviceinfo.DeviceAddress, BluetoothService.SerialPort, new AsyncCallback(Connect_ac),deviceinfo); //connect 
                     }
-                    break;
+                    break;  //stop looking for other fitting devices 
                 }
             }
         }
 
+        /// <summary>
+        /// creating the table to do crc8
+        /// </summary>
         private void crc_CreateTable()
         {
             for (int i = 0; i < 256; ++i)
@@ -234,6 +275,12 @@ namespace Bluetooth
             }
         }
 
+        /// <summary>
+        /// used only for a whole packet (with präamble, framelength, command, data, crc, cr)
+        /// doesn't use every bit (starts at the second one ends at the n-3)
+        /// </summary>
+        /// <param name="bytes"></param>
+        /// <returns></returns>
         private static byte crc_ComputeChecksum(params byte[] bytes)
         {
             byte crc = 0;
@@ -249,6 +296,11 @@ namespace Bluetooth
             return crc;
         }
 
+        /// <summary>
+        /// use only for the CRC with only the stuff intresting for the crc (framelenght, command, data, and sometimes crc (check if correct transmitted))
+        /// </summary>
+        /// <param name="bytes"></param>
+        /// <returns></returns>
         private static byte crc_CheckWithCRC(params byte[] bytes)
         {
             byte crc = 0;
@@ -261,27 +313,31 @@ namespace Bluetooth
             }
             return crc;
         } 
-        
-  
 
-
+        /// <summary>
+        /// setting the präamble in the first two bytes
+        /// </summary>
+        /// <param name="b"></param>
         private void SettingPräamble(ref byte[] b)
         {
             b[0] = BT_Protocoll.PräambleBytes[0];
             b[1] = BT_Protocoll.PräambleBytes[1]; 
         }
 
+        /// <summary>
+        /// sends an Init to the Device with everything (präamble and crc and cr) 
+        /// </summary>
         public void SendInit()
         {
             int packetlength = BT_Protocoll.InitLength + BT_Protocoll.FrameLengthOverhead;
 
             byte[] b = new byte[packetlength];
-            SettingPräamble(ref b);
-            b[2] = (byte)BT_Protocoll.InitLength;
-            b[3] = BT_Protocoll.InitCommand;
+            SettingPräamble(ref b);         //set the präamble 
+            b[2] = (byte)BT_Protocoll.InitLength;   //set the length
+            b[3] = BT_Protocoll.InitCommand;        //set the command
 
-            b[packetlength - 2] = crc_ComputeChecksum(b);
-            b[packetlength - 1] = BT_Protocoll.CarriageReturn;
+            b[packetlength - 2] = crc_ComputeChecksum(b); //set the checksum
+            b[packetlength - 1] = BT_Protocoll.CarriageReturn;  //set the cr
             Send(b);
             Logger("sending Init");
         }
@@ -300,6 +356,10 @@ namespace Bluetooth
             Logger("sending StayingAlive");
         }
 
+        /// <summary>
+        /// sends an answer to MeasuredDataCommand
+        /// </summary>
+        /// <param name="notlastData">if there is a point comming after the last one</param>
         public void SendMeasuredDataAnswer(byte notlastData)
         {
             int packetlength = BT_Protocoll.MeasuredDataAnswerLength + BT_Protocoll.FrameLengthOverhead;
@@ -317,6 +377,10 @@ namespace Bluetooth
             Logger("sending MeasuredDataAnswer");
         }
 
+        /// <summary>
+        /// sends a MotorAdustingCommand
+        /// </summary>
+        /// <param name="gap">the gap in 1/100 mm</param>
         public void SendMotorAdjusting(int gap)
         {
             int packetlength = BT_Protocoll.MotorAdjustingLength + BT_Protocoll.FrameLengthOverhead;
@@ -383,7 +447,8 @@ namespace Bluetooth
 
         public void Send(byte[] b)
         {
-            s.Write(b, 0, b.Length);
+            if (s != null)
+                s.Write(b, 0, b.Length);
             //s.Write(new byte[] {0x01}, 0, 1);
         }        
 
