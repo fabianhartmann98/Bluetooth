@@ -130,8 +130,7 @@ namespace Bluetooth
                 while (rx_tail != 0)  //as long as there is some data in it (or the checksum does not fit or the full packet hasn't arrived yet)
                 {
 
-                    if (rx_tail < 6) //if the minimum frame lenght has not arrived yet
-                        return;
+                    
 
                     //correcting 
                     //if rx_tail is greater 2: it is going to overwrite it anyway
@@ -143,7 +142,8 @@ namespace Bluetooth
                         shiftingRXBuf(1);
                     }
 
-                    
+                    if (rx_tail < 6) //if the minimum frame lenght has not arrived yet
+                        return;
                     //now etleast there is a correct präamble and at least 6 recieved bytes 
 
                     int framelength = AccessRXBuf(rx_head + 2); //get the framelength (is the 3. Byte)
