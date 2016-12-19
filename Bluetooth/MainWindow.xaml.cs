@@ -23,99 +23,50 @@ namespace Bluetooth
     /// </summary>
     public partial class MainWindow : Window
     {
-        BluetoothClient bc;
-        BluetoothDeviceInfo[] infos;
-        Stream s;
-        BluetoothListener bl;
-        const int buf_len = 256;
-        byte[] RX_buf = new byte[buf_len]; 
-        byte[] TX_buf = new byte[buf_len];
-        int rx_head = 0;
-        int tx_head = 0;
-        int rx_tail = 0;
-        int tx_tail = 0; 
+        BT_connection bt;
         public MainWindow()
         {
             InitializeComponent();
+
+             bt= new BT_connection(); 
+            bt.DeviceConnected+=bt_DeviceConnected;
             
-
-            bc = new BluetoothClient();
-
-            infos = bc.DiscoverDevices(255,false,true,true);
-            string[] names= new string [infos.Length];
-            for (int i = 0; i < infos.Length; i++)
-            {
-                names[i] = infos[i].DeviceName; 
-            }
-            Devices.ItemsSource = names;
+            Devices.ItemsSource = bt.GetAvailableDevices();
             Devices.SelectedIndex = 0;
         }
 
 
-        private void Connect_ac(IAsyncResult ar)
+        void bt_DeviceConnected(object sender, EventArgs e)
         {
-            if (ar.IsCompleted)
-                MessageBox.Show("Connected");
-            if(bc.Connected)
-                s = bc.GetStream();
-            //Receive_tb.Text = s.Read(RX_buf, rx_tail, buf_len - tx_tail).ToString();
-            //await receifingData();
-
+            TextBoxUpdate(Receive_tb, "connected to Device");
         }
 
-        private async Task receifingData()
+
+        private void TextBoxUpdate(TextBox textBox, string v)
         {
-            while (true)
+            if (!textBox.Dispatcher.CheckAccess())
             {
-                rx_tail += await s.ReadAsync(RX_buf, rx_tail, buf_len - rx_tail);
-                for (int i = rx_head; i < rx_tail; i++)
-                {
-                    Receive_tb.Text += RX_buf[i];
-                }
-                rx_tail = 0;
-                rx_head = 0;
+                textBox.Dispatcher.Invoke(
+                     (Action<TextBox, string>)TextBoxUpdate, textBox, v);
             }
-        }
-
-        private void beginRead_cal(IAsyncResult ar)
-        {
-            
+            else
+            {
+                textBox.Text += v;
+            }
         }
 
 
         private void Connect_Click(object sender, RoutedEventArgs e)
         {
-            try
-            {
-                int i = Devices.SelectedIndex;
-                Guid serviceClass = Guid.NewGuid();
-                BluetoothDeviceInfo device = infos[i];
-                BluetoothSecurity.PairRequest(device.DeviceAddress, "0000");
-                
-                if (device.Authenticated)
-                {
-                    bc.BeginConnect(device.DeviceAddress, BluetoothService.SerialPort, new AsyncCallback(Connect_ac), device);
-                }
-
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(ex.Message);
-                throw;
-            }
+            bt.ConnectToDevice(Devices.SelectedItem.ToString());
         }
 
         private void Send_b_Click(object sender, RoutedEventArgs e)
         {
-            foreach (char item in Send_tb.Text)
-            {
-                TX_buf[tx_tail++] = Convert.ToByte(item);                
-            }
-            Send_tb.Text = "";
-            s.Write(TX_buf, tx_head, tx_tail - tx_head);
-            s.Flush(); 
-            tx_head = 0;
-            tx_tail = 0; 
+
+            bt.SendStayingAlive();
+            bt.SendInit();
+            bt.SendMotorAdjusting(300);
         }
 
 
