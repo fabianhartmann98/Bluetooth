@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using InTheHand.Net.Bluetooth;
 using InTheHand.Net.Sockets;
 using System.IO;
+using System.Timers;
 
 namespace Bluetooth
 {
@@ -30,6 +31,11 @@ namespace Bluetooth
 
         }
 
+        public double aim_position;
+        public double lastupdated_position;
+        public byte lastupdated_status;
+        public double maxgap; 
+
         BluetoothClient bc;                 //the client which it is going to be connected to 
         BluetoothDeviceInfo[] infos;        //all the available DeviceInfos 
         Stream s;                           //the stream to write and read on   
@@ -52,11 +58,43 @@ namespace Bluetooth
             set { pin = value; }
         }
 
+        #region staying alive
+        Timer staying_alive_timer;
+        int count_missing_StayingAlive;
+        const int max_count_missing_StayingAlive = 20;
+        const double staying_alive_timer_interval = 1000;
+
+        public void startStayingAliveTimer()
+        {
+            staying_alive_timer = new Timer(staying_alive_timer_interval);
+            staying_alive_timer.Elapsed += staying_alive_timer_Elapsed;
+            staying_alive_timer.Start();
+        }
+        #endregion
+
+        void staying_alive_timer_Elapsed(object sender, ElapsedEventArgs e)
+        {
+            count_missing_StayingAlive++;
+            if (count_missing_StayingAlive > max_count_missing_StayingAlive)
+            {
+                OnDeviceDisconnected();
+            }
+            SendStayingAlive();
+        }
+
         public BT_connection()
         {
             DeletLogger();
-            crc_CreateTable();              
+            crc_CreateTable(); 
+            startStayingAliveTimer();
+
+            aim_position = -1;
+            lastupdated_position = -1;
+            lastupdated_status = 0xFF;
+            maxgap = -1; 
         }        
+
+
         
         /// <summary>
         /// getting al the available Devices in the area 
@@ -130,8 +168,6 @@ namespace Bluetooth
                 while (rx_tail != 0)  //as long as there is some data in it (or the checksum does not fit or the full packet hasn't arrived yet)
                 {
 
-                    
-
                     //correcting 
                     //if rx_tail is greater 2: it is going to overwrite it anyway
                     //if one of the präambles is wrong
@@ -161,62 +197,73 @@ namespace Bluetooth
 
                     byte[] crcpacket = new byte[framelength];   //is because the präamble and the CR is not included (in the framelenght the cr and crc is included but in the crc the cr is not included instead the framelength)
                     Array.Copy(RX_buf, rx_head + 2, crcpacket, 0, crcpacket.Length); //copy the for the crc intresting byte in the crcpacket
-                    if (crc_CheckWithCRC(crcpacket) != 0)   //if the crc is not fitting
-                    {
-                        Logger("didn't pass Checksum");     //log it and end Datamanager
-                        return;
-                    }
+                    //todo: undo if crc implemented on MCU
+                    //if (crc_CheckWithCRC(crcpacket) != 0)   //if the crc is not fitting
+                    //{
+                    //    Logger("didn't pass Checksum");     //log it and end Datamanager
+                    //    return;
+                    //}
                     switch (AccessRXBuf(rx_head + 3))       //which Command is it
                     {
                         case (BT_Protocoll.StayingAliveAnswer):
+                            count_missing_StayingAlive = 0;
                             Logger("received StayingAliveAnswer");
-                            break;
-                        case (BT_Protocoll.StayingAliveCommand):
-                            Logger("received StayingAliveCommand");
-                            break;
-                        case (BT_Protocoll.InitCommand):
-                            Logger("received InitCommand");
-                            break;
+                            break;                                               
                         case (BT_Protocoll.InitAnswer):
                             Logger("received InitAnswer");
                             break;
                         case (BT_Protocoll.MeasuredDataCommand):
+                            OnMeasuredDataReceived(Convert.ToDouble(AccessRXBuf(rx_head + 4)<<8 + AccessRXBuf(rx_head+5)), 
+                                Convert.ToDouble(AccessRXBuf(rx_head + 6) << 8 + AccessRXBuf(rx_head +7)),
+                                Convert.ToDouble(AccessRXBuf(rx_head + 8) << 8 + AccessRXBuf(rx_head + 9)));
+                            SendMeasuredDataAnswer(AccessRXBuf(rx_head + 10));
                             Logger("received MeasuredDataCommand");
-                            break;
-                        case (BT_Protocoll.MeasuredDataAnswer):
-                            Logger("received MeasuredDataAnswer");
-                            break;
-                        case (BT_Protocoll.MotorAdjustingCommand):
-                            Logger("received MotorAdjustingCommand");
-                            break;
+                            break;                                               
                         case (BT_Protocoll.MotorAdjustingAnswer):
                             Logger("received MotorAdjustingAnswer");
-                            break;
-                        case (BT_Protocoll.StatusRequestCommand):
-                            Logger("received StatusRequestCommand");
-                            break;
+                            break;                        
                         case (BT_Protocoll.StatusRequestAnswer):
+                            OnStatusReceived(AccessRXBuf(rx_head + 4));
                             Logger("received StatusRequestAnswer");
-                            break;
-                        case (BT_Protocoll.PositionRequestCommand):
-                            Logger("received PositionRequestCommand");
-                            break;
+                            break;                        
                         case (BT_Protocoll.PositionRequestAnswer):
+                            OnPositionReceived(Convert.ToDouble(AccessRXBuf(rx_head + 4) << 8 + AccessRXBuf(rx_head + 5)),
+                                Convert.ToDouble(AccessRXBuf(rx_head + 6) << 8 + AccessRXBuf(rx_head + 7)));
                             Logger("received PositionRequestAnswer");
                             break;
-                        case (BT_Protocoll.MaxGapRequestCommand):
-                            Logger("received MaxGapRequestCommand");
-                            break;
                         case (BT_Protocoll.MaxGapRequestAnswer):
+                            OnMaxGapRecieved(Convert.ToDouble(AccessRXBuf(rx_head + 4) << 8 + AccessRXBuf(rx_head + 5)));
                             Logger("received MaxGapRequestAnswer");
                             break;
+                        #region shouldn't receive any of this
+                        case (BT_Protocoll.InitCommand):
+                            Logger("received InitCommand\t ERROR");
+                            break;
+                        case (BT_Protocoll.StayingAliveCommand):
+                            Logger("received StayingAliveCommand\t ERROR");
+                            break;
+                        case (BT_Protocoll.MeasuredDataAnswer):
+                            Logger("received MeasuredDataAnswer\t ERROR");
+                            break;
+                        case (BT_Protocoll.MotorAdjustingCommand):
+                            Logger("received MotorAdjustingCommand\t ERROR");
+                            break;
+                        case (BT_Protocoll.StatusRequestCommand):
+                            Logger("received StatusRequestCommand\t ERROR");
+                            break;
+                        case (BT_Protocoll.PositionRequestCommand):
+                            Logger("received PositionRequestCommand\t ERROR");
+                            break;
+                        case (BT_Protocoll.MaxGapRequestCommand):
+                            Logger("received MaxGapRequestCommand\t ERROR");
+                            break;
+                        #endregion
+
                         default:
                             break;
                     }
 
-                    shiftingRXBuf(framelength + BT_Protocoll.FrameLengthOverhead);
-
-
+                    shiftingRXBuf(framelength + BT_Protocoll.FrameLengthOverhead); //remove packet out of buffer
 
                 }
 
@@ -235,7 +282,7 @@ namespace Bluetooth
                 OnDeviceConnected(); //calling the Event DeviceConnected
                 Logger("connected to Device: " + deviceinfo.DeviceName + " with Address " + deviceinfo.DeviceAddress);
                 s = bc.GetStream(); //get the Stream to read and write on
-                s.BeginRead(RX_buf, rx_tail, buf_len - rx_tail, beginRead_cal, s);  //start reading 
+                s.BeginRead(RX_buf, rx_tail, buf_len - rx_tail, beginRead_cal, s);  //start reading                 
             }
         }
 
@@ -459,20 +506,64 @@ namespace Bluetooth
             if (s != null)
                 s.Write(b, 0, b.Length);
             //s.Write(new byte[] {0x01}, 0, 1);
-        }        
+        }
 
-        
+        #region Events
         public event EventHandler DeviceConnected;
 
         protected virtual void OnDeviceConnected()
         {
-                  
+            if (s != null)
+                s.Close(); 
             if (DeviceConnected != null)
                 DeviceConnected(this, new EventArgs());
         }
 
+        public event EventHandler DeviceDisconnected;
 
+        protected virtual void OnDeviceDisconnected()
+        {
 
+            if (DeviceDisconnected != null)
+                DeviceDisconnected(this, new EventArgs());
+        }
+
+        public event EventHandler MeasuredDataReceived;
+
+        protected virtual void OnMeasuredDataReceived(double number, double time, double act_value)
+        {
+
+            if (MeasuredDataReceived != null)
+                MeasuredDataReceived(this, new ReceivedData_EventArgs(number,time,act_value));
+        }
+
+        public event EventHandler StatusReceived;
+
+        protected virtual void OnStatusReceived(byte status)
+        {
+
+            if (StatusReceived != null)
+                StatusReceived(this, new ReceivedData_EventArgs(status));
+        }
+
+        public event EventHandler PositionReceived;
+
+        protected virtual void OnPositionReceived(double current_position,  double aim_position)
+        {
+
+            if (PositionReceived != null)
+                PositionReceived(this, new ReceivedData_EventArgs(current_position, aim_position));
+        }
+
+        public event EventHandler MaxGapRecieved;
+
+        protected virtual void OnMaxGapRecieved(double maxgap)
+        {
+
+            if (MaxGapRecieved != null)
+                MaxGapRecieved(this, new ReceivedData_EventArgs(maxgap));
+        }
+        #endregion
 
     }
 }
