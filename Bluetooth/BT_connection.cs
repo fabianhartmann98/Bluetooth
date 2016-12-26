@@ -86,7 +86,7 @@ namespace Bluetooth
         {
             DeletLogger();
             crc_CreateTable(); 
-            startStayingAliveTimer();
+            //startStayingAliveTimer();
 
             aim_position = -1;
             lastupdated_position = -1;
@@ -213,9 +213,10 @@ namespace Bluetooth
                             Logger("received InitAnswer");
                             break;
                         case (BT_Protocoll.MeasuredDataCommand):
-                            OnMeasuredDataReceived(Convert.ToDouble(AccessRXBuf(rx_head + 4)<<8 + AccessRXBuf(rx_head+5)), 
-                                Convert.ToDouble(AccessRXBuf(rx_head + 6) << 8 + AccessRXBuf(rx_head +7)),
-                                Convert.ToDouble(AccessRXBuf(rx_head + 8) << 8 + AccessRXBuf(rx_head + 9)));
+                            int number = Convert.ToInt32((AccessRXBuf(rx_head + 4) << 8 )+ AccessRXBuf(rx_head + 5));
+                            int time = Convert.ToInt32((AccessRXBuf(rx_head + 6) << 8) + AccessRXBuf(rx_head + 7));
+                            int data = Convert.ToInt32((AccessRXBuf(rx_head + 8) << 8) + AccessRXBuf(rx_head + 9));
+                            OnMeasuredDataReceived(number, time,data);
                             SendMeasuredDataAnswer(AccessRXBuf(rx_head + 10));
                             Logger("received MeasuredDataCommand");
                             break;                                               
@@ -227,12 +228,14 @@ namespace Bluetooth
                             Logger("received StatusRequestAnswer");
                             break;                        
                         case (BT_Protocoll.PositionRequestAnswer):
-                            OnPositionReceived(Convert.ToDouble(AccessRXBuf(rx_head + 4) << 8 + AccessRXBuf(rx_head + 5)),
-                                Convert.ToDouble(AccessRXBuf(rx_head + 6) << 8 + AccessRXBuf(rx_head + 7)));
+                            int act_pos = Convert.ToInt32((AccessRXBuf(rx_head + 4) << 8) + AccessRXBuf(rx_head + 5));
+                            int aim_pos = Convert.ToInt32((AccessRXBuf(rx_head + 6) << 8) + AccessRXBuf(rx_head + 7));
+                            OnPositionReceived(act_pos,aim_pos);
                             Logger("received PositionRequestAnswer");
                             break;
                         case (BT_Protocoll.MaxGapRequestAnswer):
-                            OnMaxGapRecieved(Convert.ToDouble(AccessRXBuf(rx_head + 4) << 8 + AccessRXBuf(rx_head + 5)));
+                            int i_maxGap = Convert.ToInt32((AccessRXBuf(rx_head + 4) << 8) + AccessRXBuf(rx_head + 5));
+                            OnMaxGapRecieved(i_maxGap);
                             Logger("received MaxGapRequestAnswer");
                             break;
                         #region shouldn't receive any of this

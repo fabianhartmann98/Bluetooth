@@ -65,6 +65,7 @@ namespace Bluetooth
         {
 
             bt.SendStayingAlive();
+            bt.SendPositionRequest();
             //bt.SendInit();
             //bt.SendMotorAdjusting(300);
         }
