@@ -7,6 +7,7 @@ using InTheHand.Net.Bluetooth;
 using InTheHand.Net.Sockets;
 using System.IO;
 using System.Timers;
+using System.Collections;
 
 namespace Bluetooth
 {
@@ -123,6 +124,16 @@ namespace Bluetooth
         private void beginRead_cal(IAsyncResult ar)
         {
             rx_tail += s.EndRead(ar);
+            if (rx_tail > 10)
+            { 
+                int q = 0;
+                ArrayList al = new ArrayList();
+                while (q +1< rx_tail)
+                {
+                    al.Add(RX_buf[q] * Math.Pow(2, 8) + RX_buf[q + 1]);
+                    q += 2;
+                }
+            }
             DataManager();
 
             s.BeginRead(RX_buf, rx_tail, buf_len-rx_tail, beginRead_cal, s);            
